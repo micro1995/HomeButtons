@@ -17,6 +17,7 @@ void DeviceState::save_user() {
                            user_preferences_.btn_labels[i].c_str());
   }
   preferences_.putUInt("sen_itv", user_preferences_.sensor_interval);
+  preferences_.putUInt("rotation", user_preferences_.rotation);
   preferences_.putBool("use_f", user_preferences_.use_fahrenheit);
   preferences_.putString(
       "sta_ip",
@@ -59,6 +60,8 @@ void DeviceState::load_user() {
 
   user_preferences_.sensor_interval =
       preferences_.getUInt("sen_itv", SEN_INTERVAL_DFLT);
+  user_preferences_.rotation =
+      preferences_.getUInt("rotation", 0);
   user_preferences_.use_fahrenheit = preferences_.getBool("use_f", false);
 
   _load_to_ip_address(user_preferences_.network.static_ip, "sta_ip", "0.0.0.0");

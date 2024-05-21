@@ -34,6 +34,8 @@ class DeviceState : public Logger {
     DeviceName device_name;
     ButtonLabel btn_labels[NUM_BUTTONS];
     uint16_t sensor_interval = 0;  // minutes
+
+    uint16_t rotation = 0;
     bool use_fahrenheit = false;
 
     StaticIPConfig network;
@@ -129,6 +131,10 @@ class DeviceState : public Logger {
   uint16_t sensor_interval() const { return user_preferences_.sensor_interval; }
   void set_sensor_interval(uint16_t interval_min) {
     user_preferences_.sensor_interval = interval_min;
+  }
+  uint16_t global_rotation() const { return user_preferences_.rotation; }
+  void set_global_rotation(uint16_t rotation) {
+    user_preferences_.rotation = rotation;
   }
   const ButtonLabel& get_btn_label(uint8_t i) const;
   void set_btn_label(uint8_t i, const char* label);

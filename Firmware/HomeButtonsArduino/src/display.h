@@ -64,6 +64,11 @@ class Display : public Logger {
   void disp_web_config();
   void disp_test(const char* text, const char* mdi_name, uint16_t mdi_size);
 
+  uint16_t get_global_rotation() const { return global_rotation; }
+  void set_global_rotation(uint16_t rotation) {
+    global_rotation = rotation;
+  }
+
   UIState get_ui_state();
   void init_ui_state(UIState ui_state);  // used after wakeup
   State get_state();
@@ -84,6 +89,8 @@ class Display : public Logger {
 
   uint16_t text_color = GxEPD_BLACK;
   uint16_t bg_color = GxEPD_WHITE;
+  bool just_formatted = 0;
+  uint16_t global_rotation = 0;
 
   const DeviceState& device_state_;
   MDIHelper& mdi_;

@@ -56,6 +56,7 @@ void App::_start_esp_sleep() {
 }
 
 void App::_go_to_sleep() {
+  device_state_.set_global_rotation(display_.get_global_rotation());
   device_state_.save_all();
   hw_.set_all_leds(0);
   _start_esp_sleep();
@@ -238,7 +239,7 @@ void App::_main_task() {
   }
 
   device_state_.load_all(hw_);
-
+  display_.set_global_rotation(device_state_.global_rotation());
   // must be before ledAttachPin (reserves GPIO37 = SPIDQS)
   display_.begin(hw_);
   hw_.begin();
