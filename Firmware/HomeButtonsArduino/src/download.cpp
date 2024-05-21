@@ -20,7 +20,7 @@ bool download::download_file_https(const char* host, const char* url,
   HTTPClient https;
   https.setConnectTimeout(DOWNLOAD_TIMEOUT);
   https.setTimeout(DOWNLOAD_TIMEOUT);
-  https.begin(url, certificate);
+  https.begin(url);
   int http_code = https.GET();
   if (http_code != HTTP_CODE_OK) {
     logger.error("GET request failed with code %d", http_code);
@@ -66,7 +66,7 @@ bool download::check_connection(const char* host, const char* url,
   HTTPClient https;
   https.setConnectTimeout(DOWNLOAD_TIMEOUT);
   https.setTimeout(DOWNLOAD_TIMEOUT);
-  https.begin(url, certificate);
+  https.begin(url);
   int http_code = https.GET();
   if (http_code != HTTP_CODE_OK) {
     logger.error("GET request failed with code %d", http_code);

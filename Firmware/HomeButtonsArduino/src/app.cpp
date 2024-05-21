@@ -651,8 +651,15 @@ void App::_download_mdi_icons() {
   for (uint8_t i = 0; i < NUM_BUTTONS; i++) {
     ButtonLabel label(device_state_.get_btn_label(i).c_str());
     if (label.substring(0, 4) == "mdi:") {
-      MDIName icon = label.substring(
-          4, label.index_of(' ') > 0 ? label.index_of(' ') : label.length());
+      MDIName icon;
+      if(label.index_of(';') > 0)
+      {
+        icon = label.substring(label.index_of(';') + 1, label.index_of(' ') > 0 ? label.index_of(' ') : label.length());
+      }
+      else
+      {
+        icon = label.substring(4, label.index_of(' ') > 0 ? label.index_of(' ') : label.length());
+      }
       if (!mdi_.exists_all_sizes(icon.c_str())) {
         download_required = true;
         break;
@@ -694,8 +701,15 @@ void App::_download_mdi_icons() {
   for (uint8_t i = 0; i < NUM_BUTTONS; i++) {
     ButtonLabel label(device_state_.get_btn_label(i).c_str());
     if (label.substring(0, 4) == "mdi:") {
-      MDIName icon = label.substring(
-          4, label.index_of(' ') > 0 ? label.index_of(' ') : label.length());
+      MDIName icon;
+      if(label.index_of(';') > 0)
+      {
+        icon = label.substring(label.index_of(';') + 1, label.index_of(' ') > 0 ? label.index_of(' ') : label.length());
+      }
+      else
+      {
+        icon = label.substring(4, label.index_of(' ') > 0 ? label.index_of(' ') : label.length());
+      }
       if (!mdi_.exists_all_sizes(icon.c_str())) {
         mdi_.download(icon.c_str());
       }

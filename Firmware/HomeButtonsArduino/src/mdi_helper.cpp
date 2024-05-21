@@ -6,10 +6,10 @@
 static constexpr char HOST[] = "raw.githubusercontent.com";
 
 static constexpr char MDI_URL[] =
-    "https://raw.githubusercontent.com/nplan/MDI-BMP/main/";
+    "https://raw.githubusercontent.com/micro1995/MDI-BMP/main/";
 
 static constexpr char TEST_URL[] =
-    "https://raw.githubusercontent.com/nplan/MDI-BMP/main/64x64/alien.bmp";
+    "https://raw.githubusercontent.com/micro1995/MDI-BMP/main/64x64/alien.bmp";
 
 static constexpr char FOLDER[] = "/mdi";
 

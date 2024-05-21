@@ -128,7 +128,10 @@ struct HardwareDefinition : public Logger {
     memcpy(factory_params_.random_id, random_id, 6);
   }
   void set_model_id(const char *model_id) {
-    memcpy(factory_params_.model_id, model_id, 2);
+      #ifdef HOME_BUTTONS_MINI_OVERRIDE_MODELID
+      #else
+        // memcpy(factory_params_.model_id, model_id, 2);
+      #endif
   }
   void set_hw_version(const char *hw_version) {
     memcpy(factory_params_.hw_version, hw_version, 3);
@@ -147,6 +150,15 @@ struct HardwareDefinition : public Logger {
   void load_mini_hw_rev_1_1();
 
  private:
+ #ifdef HOME_BUTTONS_MINI_OVERRIDE_MODELID
+ struct {
+    // members have length +1 for null terminator
+    char serial_number[9];
+    char random_id[7];
+    char model_id[3];
+    char hw_version[4];
+  } factory_params_{"","","B1",""};
+ #else
   struct {
     // members have length +1 for null terminator
     char serial_number[9];
@@ -154,6 +166,7 @@ struct HardwareDefinition : public Logger {
     char model_id[3];
     char hw_version[4];
   } factory_params_{};
+#endif
 
   char model_name_[21] = "";
   char unique_id_[22] = "";

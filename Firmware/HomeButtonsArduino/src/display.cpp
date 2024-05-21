@@ -264,6 +264,7 @@ void Display::draw_message(const UIState::MessageType &message, bool error,
   disp->setRotation(0);
   disp->setFullWindow();
 
+  u8g2.setFontDirection(0);
   u8g2.setFontMode(1);
   u8g2.setForegroundColor(text_color);
   u8g2.setBackgroundColor(bg_color);
@@ -278,7 +279,66 @@ void Display::draw_message(const UIState::MessageType &message, bool error,
       u8g2.setFont(u8g2_font_helvB18_te);
       u8g2.setCursor(0, 30);
     }
-    u8g2.print(message.c_str());
+
+    UIState::MessageType part;
+    UIState::MessageType remain = message;
+    uint16_t lines = 0;
+    uint16_t linecounter = 0;
+
+    do {
+      if (remain.index_of('\n') < 0) {
+        part = remain;
+        remain = "";
+      } else {
+        part = remain.substring(0, remain.index_of('\n'));
+        remain = remain.substring(remain.index_of('\n') + 1);
+      }
+      lines += 1;
+    } while (strcmp(remain.c_str(), "") != 0);
+
+    remain = message;
+
+    do {
+      if (remain.index_of('\n') < 0) {
+        part = remain;
+        remain = "";
+      } else {
+        part = remain.substring(0, remain.index_of('\n'));
+        remain = remain.substring(remain.index_of('\n') + 1);
+      }
+      switch (global_rotation) {
+        case 90:
+          u8g2.setCursor(((WIDTH - u8g2.getFontAscent()) / 2) -
+                             (2 * linecounter * u8g2.getFontAscent()) +
+                             ((lines - 1) * u8g2.getFontAscent()),
+                         (HEIGHT - u8g2.getUTF8Width(part.c_str())) / 2);
+          u8g2.setFontDirection(1);
+          break;
+        case 180:
+          u8g2.setCursor((WIDTH + u8g2.getUTF8Width(part.c_str())) / 2,
+                         ((HEIGHT - u8g2.getFontAscent()) / 2) -
+                             (2 * linecounter * u8g2.getFontAscent()) +
+                             ((lines - 1) * u8g2.getFontAscent()));
+          u8g2.setFontDirection(2);
+          break;
+        case 270:
+          u8g2.setCursor(((WIDTH + u8g2.getFontAscent()) / 2) +
+                             (2 * linecounter * u8g2.getFontAscent()) -
+                             ((lines - 1) * u8g2.getFontAscent()),
+                         (HEIGHT + u8g2.getUTF8Width(part.c_str())) / 2);
+          u8g2.setFontDirection(3);
+          break;
+        default:
+          u8g2.setCursor((WIDTH - u8g2.getUTF8Width(part.c_str())) / 2,
+                         ((HEIGHT + u8g2.getFontAscent()) / 2) +
+                             (2 * linecounter * u8g2.getFontAscent()) -
+                             ((lines - 1) * u8g2.getFontAscent()));
+          u8g2.setFontDirection(0);
+      }
+      u8g2.print(part.c_str());
+      linecounter += 1;
+    } while (strcmp(remain.c_str(), "") != 0);
+
   } else {
     u8g2.setFont(u8g2_font_helvB12_tr);
     const char *text = "ERROR";
@@ -289,6 +349,7 @@ void Display::draw_message(const UIState::MessageType &message, bool error,
     u8g2.setCursor(0, 60);
     u8g2.print(message.c_str());
   }
+
   disp->display();
 }
 
@@ -299,10 +360,10 @@ void Display::draw_main() {
   disp->setRotation(0);
   disp->setFullWindow();
 
+  u8g2.setFontDirection(0);
   u8g2.setFontMode(1);
   u8g2.setForegroundColor(text_color);
   u8g2.setBackgroundColor(bg_color);
-
   disp->fillScreen(bg_color);
 
   // charging line
@@ -322,37 +383,57 @@ void Display::draw_main() {
       }
     } else {
       label_type[i] = LabelType::Text;
+      if (label == "") {
+        label_type[i] = LabelType::Icon;
+      }
     }
   }
 
   // Loop through buttons
   for (uint16_t i = 0; i < NUM_BUTTONS; i++) {
     ButtonLabel label = device_state_.get_btn_label(i);
+    uint16_t rotation = 0;
+    if (label_type[i] == LabelType::Icon && label.substring(0, 4) == "mdi:") {
+      MDIName icon;
 
-    if (label_type[i] == LabelType::Icon) {
-      MDIName icon = label.substring(
-          4, label.index_of(' ') > 0 ? label.index_of(' ') : label.length());
-
-      // make smaller if opposite is text or mixed
-      uint16_t size;
-      bool small;
-      if (i % 2 == 0) {
-        if (label_type[i + 1] == LabelType::Text ||
-            label_type[i + 1] == LabelType::Mixed) {
-          size = 48;
-          small = true;
-        } else {
-          size = 64;
-          small = false;
+      if (label.index_of(';') > 0) {
+        icon = label.substring(
+            label.index_of(';') + 1,
+            label.index_of(' ') > 0 ? label.index_of(' ') : label.length());
+        rotation = atoi(label.substring(4, label.index_of(';')).c_str());
+        if (i == 0) {
+          global_rotation = rotation;
         }
       } else {
-        if (label_type[i - 1] == LabelType::Text ||
-            label_type[i - 1] == LabelType::Mixed) {
-          size = 48;
-          small = true;
+        icon = label.substring(
+            4, label.index_of(' ') > 0 ? label.index_of(' ') : label.length());
+        if (i == 0) {
+          global_rotation = rotation;
+        }
+      }
+
+      // make smaller if opposite is text or mixed
+      uint16_t size = 64;
+      bool small = false;
+      if (rotation == 0 || rotation == 180) {
+        if (i % 2 == 0) {
+          if (label_type[i + 1] == LabelType::Text ||
+              label_type[i + 1] == LabelType::Mixed) {
+            size = 48;
+            small = true;
+          } else {
+            size = 64;
+            small = false;
+          }
         } else {
-          size = 64;
-          small = false;
+          if (label_type[i - 1] == LabelType::Text ||
+              label_type[i - 1] == LabelType::Mixed) {
+            size = 48;
+            small = true;
+          } else {
+            size = 64;
+            small = false;
+          }
         }
       }
 
@@ -381,87 +462,371 @@ void Display::draw_main() {
           y = 215;
         }
       }
-      draw_mdi(icon.c_str(), size, x, y);
+
+      draw_mdi(icon.c_str(), size, x, y, rotation);
+
     } else if (label_type[i] == LabelType::Mixed) {
-      MDIName icon = label.substring(4, label.index_of(' '));
+      MDIName icon;
+      if (label.index_of(';') > 0) {
+        icon = label.substring(label.index_of(';') + 1, label.index_of(' '));
+        rotation = atoi(label.substring(4, label.index_of(';')).c_str());
+      } else {
+        icon = label.substring(4, label.index_of(' '));
+      }
+      if (i == 0) {
+        global_rotation = rotation;
+      }
       StaticString<56> text = label.substring(label.index_of(' ') + 1);
       uint16_t icon_size = 48;
-      uint16_t x = i % 2 == 0 ? 0 : WIDTH - icon_size;
-      uint16_t y =
-          static_cast<uint16_t>(round(HEIGHT / 12. + i * HEIGHT / 6.)) -
-          icon_size / 2;
+      uint16_t y = 0;
+      uint16_t x = 0;
+      if (rotation == 0 || rotation == 180) {
+        y = static_cast<uint16_t>(round(HEIGHT / 12. + i * HEIGHT / 6.)) -
+            icon_size / 2;
+        x = i % 2 == 0 ? 0 : WIDTH - icon_size;
+      } else if (rotation == 90 || rotation == 270) {
+        y = static_cast<uint16_t>(
+            round((HEIGHT / 6.) * (((i / 2) * 2.) + 1.) - (icon_size / 2)));
+        x = i % 2 == 0 ? WIDTH / 2 - icon_size : WIDTH / 2;
+      }
 
-      draw_mdi(icon.c_str(), icon_size, x, y);
+      draw_mdi(icon.c_str(), icon_size, x, y, rotation);
       // draw text
-      uint16_t max_text_width = WIDTH - icon_size - h_padding;
+      uint16_t max_text_width = 0;
+      bool smaller_for_rotation = 1;
+      if (rotation == 0 || rotation == 180) {
+        max_text_width = WIDTH - icon_size - h_padding;
+        smaller_for_rotation = 0;
+      } else {
+        max_text_width = HEIGHT / 3 - h_padding;
+        smaller_for_rotation = 1;
+      }
+
       if (text.index_of('_') == 0) {
         // force small font
         text = text.substring(1);
         u8g2.setFont(u8g2_font_helvB18_te);
+        if (text.index_of('_') == 0) {
+          text = text.substring(1);
+          u8g2.setFont(u8g2_font_helvB12_te);
+          smaller_for_rotation = 0;
+          if (text.index_of('_') == 0) {
+            text = text.substring(1);
+            u8g2.setFont(u8g2_font_helvB10_te);
+            if (text.index_of('_') == 0) {
+              text = text.substring(1);
+              u8g2.setFont(u8g2_font_helvB08_te);
+            }
+          }
+        }
       } else {
         u8g2.setFont(u8g2_font_helvB24_te);
       }
       uint16_t w, h;
       w = u8g2.getUTF8Width(text.c_str());
       h = u8g2.getFontAscent();
-      if (w >= max_text_width) {
+      if (w >= max_text_width || smaller_for_rotation == 1) {
         u8g2.setFont(u8g2_font_helvB18_te);
         w = u8g2.getUTF8Width(text.c_str());
         h = u8g2.getFontAscent();
-        if (w >= max_text_width) {
-          text = text.substring(0, text.length() - 1) + ".";
-          while (1) {
+        if (w >= max_text_width || smaller_for_rotation == 1) {
+          u8g2.setFont(u8g2_font_helvB12_te);
+          w = u8g2.getUTF8Width(text.c_str());
+          h = u8g2.getFontAscent();
+          if (w >= max_text_width) {
+            u8g2.setFont(u8g2_font_helvB10_te);
             w = u8g2.getUTF8Width(text.c_str());
             h = u8g2.getFontAscent();
             if (w >= max_text_width) {
-              text = text.substring(0, text.length() - 2) + ".";
-            } else {
-              break;
+              u8g2.setFont(u8g2_font_helvB08_te);
+              w = u8g2.getUTF8Width(text.c_str());
+              h = u8g2.getFontAscent();
+              if (w >= max_text_width) {
+                text = text.substring(0, text.length() - 1) + ".";
+                while (1) {
+                  w = u8g2.getUTF8Width(text.c_str());
+                  h = u8g2.getFontAscent();
+                  if (w >= max_text_width) {
+                    text = text.substring(0, text.length() - 2) + ".";
+                  } else {
+                    break;
+                  }
+                }
+              }
             }
           }
         }
       }
-      x = i % 2 == 0 ? icon_size + h_padding
-                     : WIDTH - icon_size - w - h_padding;
-      y = static_cast<uint16_t>(round(HEIGHT / 12. + i * HEIGHT / 6.)) + h / 2;
-      u8g2.setCursor(x, y);
+      if (rotation == 0) {
+        u8g2.setFontDirection(0);
+        x = i % 2 == 0 ? icon_size : WIDTH - icon_size - w - h_padding;
+        y = static_cast<uint16_t>(round(HEIGHT / 12. + i * HEIGHT / 6.)) +
+            h / 2;
+        u8g2.setCursor(x, y);
+      } else if (rotation == 90) {
+        u8g2.setFontDirection(1);
+        x = i % 2 == 0 ? h_padding / 2 : WIDTH - 12 - h_padding / 2;
+        y = static_cast<uint16_t>(round((HEIGHT / 6.) +
+                                        ((HEIGHT / 3.) * (i / 2)) -
+                                        (u8g2.getUTF8Width(text.c_str()) / 2)));
+        u8g2.setCursor(x, y);
+      } else if (rotation == 180) {
+        u8g2.setFontDirection(2);
+        x = i % 2 == 0 ? icon_size + w : WIDTH - icon_size - h_padding;
+        y = static_cast<uint16_t>(round(HEIGHT / 12. + i * HEIGHT / 6.)) +
+            h / 2;
+        y = y - h;
+        u8g2.setCursor(x, y);
+      } else if (rotation == 270) {
+        u8g2.setFontDirection(3);
+        x = i % 2 == 0 ? h_padding / 2 + 12 : WIDTH - h_padding / 2;
+        y = static_cast<uint16_t>(round((HEIGHT / 6.) +
+                                        ((HEIGHT / 3.) * (i / 2)) +
+                                        (u8g2.getUTF8Width(text.c_str()) / 2)));
+        u8g2.setCursor(x, y);
+      }
       u8g2.print(text.c_str());
     } else {
-      uint16_t max_label_width = WIDTH - min_btn_clearance;
+      uint16_t max_label_width;
+      if (label.index_of(';') > 0) {
+        rotation = atoi(label.substring(0, label.index_of(';')).c_str());
+        label = label.substring(label.index_of(';') + 1).c_str();
+      }
+      if (i == 0) {
+        global_rotation = rotation;
+      }
+      bool smaller_for_rotation = 1;
+      if (rotation == 0 || rotation == 180) {
+        max_label_width = WIDTH - min_btn_clearance;
+        smaller_for_rotation = 0;
+      } else {
+        max_label_width = (HEIGHT / 2) - h_padding;
+        smaller_for_rotation = 1;
+      }
+
       if (label.index_of('_') == 0) {
         // force small font
         label = label.substring(1);
         u8g2.setFont(u8g2_font_helvB18_te);
+        if (label.index_of('_') == 0) {
+          label = label.substring(1);
+          u8g2.setFont(u8g2_font_helvB12_te);
+          smaller_for_rotation = 0;
+          if (label.index_of('_') == 0) {
+            label = label.substring(1);
+            u8g2.setFont(u8g2_font_helvB10_te);
+            if (label.index_of('_') == 0) {
+              label = label.substring(1);
+              u8g2.setFont(u8g2_font_helvB08_te);
+            }
+          }
+        }
       } else {
         u8g2.setFont(u8g2_font_helvB24_te);
       }
       uint16_t w, h;
       w = u8g2.getUTF8Width(label.c_str());
       h = u8g2.getFontAscent();
-      if (w >= max_label_width) {
+      if (w >= max_label_width || smaller_for_rotation == 1) {
         u8g2.setFont(u8g2_font_helvB18_te);
         w = u8g2.getUTF8Width(label.c_str());
         h = u8g2.getFontAscent();
-        if (w >= max_label_width) {
-          label = label.substring(0, label.length() - 1) + ".";
-          while (1) {
+        if (w >= max_label_width || smaller_for_rotation == 1) {
+          u8g2.setFont(u8g2_font_helvB12_te);
+          w = u8g2.getUTF8Width(label.c_str());
+          h = u8g2.getFontAscent();
+          if (w >= max_label_width) {
+            u8g2.setFont(u8g2_font_helvB10_te);
             w = u8g2.getUTF8Width(label.c_str());
             h = u8g2.getFontAscent();
             if (w >= max_label_width) {
-              label = label.substring(0, label.length() - 2) + ".";
-            } else {
-              break;
+              u8g2.setFont(u8g2_font_helvB08_te);
+              w = u8g2.getUTF8Width(label.c_str());
+              h = u8g2.getFontAscent();
+              if (w >= max_label_width) {
+                label = label.substring(0, label.length() - 1) + ".";
+                while (1) {
+                  w = u8g2.getUTF8Width(label.c_str());
+                  h = u8g2.getFontAscent();
+                  if (w >= max_label_width) {
+                    label = label.substring(0, label.length() - 2) + ".";
+                  } else {
+                    break;
+                  }
+                }
+              }
             }
           }
         }
       }
-      int16_t x, y;
-      if (i % 2 == 0) {
-        x = h_padding;
-      } else {
-        x = WIDTH - w - h_padding;
+      int16_t x = 0;
+      int16_t y = 0;
+      if (rotation == 0) {
+        u8g2.setFontDirection(0);
+        if (i % 2 == 0) {
+          x = h_padding;
+        } else {
+          x = WIDTH - w - h_padding;
+        }
+        y = static_cast<uint16_t>(round(HEIGHT / 12. + i * HEIGHT / 6.)) +
+            h / 2;
+      } else if (rotation == 90) {
+        u8g2.setFontDirection(1);
+        if (i < 2) {
+          x = i % 2 == 0 ? 6 + ((24 - u8g2.getFontAscent()) / 2)
+                         : WIDTH - 6 - 24 + ((24 - u8g2.getFontAscent()) / 2);
+          y = h_padding;
+          if (i == 0) {
+            disp->fillRect(0, (HEIGHT / 6) - 1, 5, 2, text_color);
+            disp->fillRect(3, (HEIGHT / 6), 2,
+                           (u8g2.getUTF8Width(label.c_str()) / 2) + h_padding -
+                               (HEIGHT / 6),
+                           text_color);
+            disp->fillRect(3,
+                           (HEIGHT / 6) +
+                               (u8g2.getUTF8Width(label.c_str()) / 2) +
+                               h_padding - (HEIGHT / 6) - 1,
+                           5, 2, text_color);
+          } else if (i == 1) {
+            disp->fillRect(WIDTH - 5, (HEIGHT / 6) - 1, 5, 2, text_color);
+            disp->fillRect(WIDTH - 5, (HEIGHT / 6), 2,
+                           (u8g2.getUTF8Width(label.c_str()) / 2) + h_padding -
+                               (HEIGHT / 6),
+                           text_color);
+            disp->fillRect(WIDTH - 8,
+                           (HEIGHT / 6) +
+                               (u8g2.getUTF8Width(label.c_str()) / 2) +
+                               h_padding - (HEIGHT / 6) - 1,
+                           5, 2, text_color);
+          }
+        } else if (i > 3) {
+          x = i % 2 == 0 ? 6 + ((24 - u8g2.getFontAscent()) / 2)
+                         : WIDTH - 6 - 24 + ((24 - u8g2.getFontAscent()) / 2);
+          y = HEIGHT - h_padding - u8g2.getUTF8Width(label.c_str());
+          if (i == 4) {
+            disp->fillRect(0, HEIGHT - (HEIGHT / 6) - 1, 5, 2,
+                           text_color);  // Quadrat von x=0 bis x=5 und y= 5/6
+                                         // HEIGHT -1 bis y= 5/6 HEIGHT +1
+            disp->fillRect(3, HEIGHT - (HEIGHT / 6), 2,
+                           (HEIGHT - (u8g2.getUTF8Width(label.c_str())) / 2) -
+                               h_padding - (HEIGHT - (HEIGHT / 6)),
+                           text_color);
+            disp->fillRect(3,
+                           (HEIGHT - (u8g2.getUTF8Width(label.c_str())) / 2) -
+                               h_padding - 1,
+                           5, 2, text_color);
+          } else if (i == 5) {
+            disp->fillRect(WIDTH - 5, HEIGHT - (HEIGHT / 6) - 1, 5, 2,
+                           text_color);  // Quadrat von x=0 bis x=5 und y= 5/6
+                                         // HEIGHT -1 bis y= 5/6 HEIGHT +1
+            disp->fillRect(WIDTH - 5, HEIGHT - (HEIGHT / 6), 2,
+                           (HEIGHT - (u8g2.getUTF8Width(label.c_str())) / 2) -
+                               h_padding - (HEIGHT - (HEIGHT / 6)),
+                           text_color);
+            disp->fillRect(WIDTH - 8,
+                           (HEIGHT - (u8g2.getUTF8Width(label.c_str())) / 2) -
+                               h_padding - 1,
+                           5, 2, text_color);
+          }
+        } else {
+          x = i % 2 == 0
+                  ? (h_padding) + 32 + ((24 - u8g2.getFontAscent()) / 2)
+                  : WIDTH - 56 - h_padding + ((24 - u8g2.getFontAscent()) / 2);
+          y = static_cast<uint16_t>(
+              round((HEIGHT / 2.) - (u8g2.getUTF8Width(label.c_str()) / 2)));
+          if (i == 2) {
+            disp->fillRect(0, (HEIGHT / 2) - 1, 32, 2, text_color);
+          } else if (i == 3) {
+            disp->fillRect(WIDTH - 32, (HEIGHT / 2) - 1, 32, 2, text_color);
+          }
+        }
+      } else if (rotation == 180) {
+        u8g2.setFontDirection(2);
+        if (i % 2 == 0) {
+          x = h_padding + w;
+        } else {
+          x = WIDTH - h_padding;
+        }
+        y = static_cast<uint16_t>(round(HEIGHT / 12. + i * HEIGHT / 6.)) -
+            h / 2;
+      } else if (rotation == 270) {
+        u8g2.setFontDirection(3);
+        if (i < 2) {
+          x = i % 2 == 0 ? 6 + 24 - ((24 - u8g2.getFontAscent()) / 2)
+                         : WIDTH - 6 - ((24 - u8g2.getFontAscent()) / 2);
+          y = h_padding + u8g2.getUTF8Width(label.c_str());
+          if (i == 0) {
+            disp->fillRect(0, (HEIGHT / 6) - 1, 5, 2, text_color);
+            disp->fillRect(3, (HEIGHT / 6), 2,
+                           (u8g2.getUTF8Width(label.c_str()) / 2) + h_padding -
+                               (HEIGHT / 6),
+                           text_color);
+            disp->fillRect(3,
+                           (HEIGHT / 6) +
+                               (u8g2.getUTF8Width(label.c_str()) / 2) +
+                               h_padding - (HEIGHT / 6) - 1,
+                           5, 2, text_color);
+          } else if (i == 1) {
+            disp->fillRect(WIDTH - 5, (HEIGHT / 6) - 1, 5, 2, text_color);
+            disp->fillRect(WIDTH - 5, (HEIGHT / 6), 2,
+                           (u8g2.getUTF8Width(label.c_str()) / 2) + h_padding -
+                               (HEIGHT / 6),
+                           text_color);
+            disp->fillRect(WIDTH - 8,
+                           (HEIGHT / 6) +
+                               (u8g2.getUTF8Width(label.c_str()) / 2) +
+                               h_padding - (HEIGHT / 6) - 1,
+                           5, 2, text_color);
+          }
+        } else if (i > 3) {
+          x = i % 2 == 0 ? 6 + 24 - ((24 - u8g2.getFontAscent()) / 2)
+                         : WIDTH - 6 - ((24 - u8g2.getFontAscent()) / 2);
+          y = HEIGHT - h_padding;
+          if (i == 4) {
+            disp->fillRect(0, HEIGHT - (HEIGHT / 6) - 1, 5, 2,
+                           text_color);  // Quadrat von x=0 bis x=5 und y= 5/6
+                                         // HEIGHT -1 bis y= 5/6 HEIGHT +1
+            disp->fillRect(3, HEIGHT - (HEIGHT / 6), 2,
+                           (HEIGHT - (u8g2.getUTF8Width(label.c_str())) / 2) -
+                               h_padding - (HEIGHT - (HEIGHT / 6)),
+                           text_color);
+            disp->fillRect(3,
+                           (HEIGHT - (u8g2.getUTF8Width(label.c_str())) / 2) -
+                               h_padding - 1,
+                           5, 2, text_color);
+          } else if (i == 5) {
+            disp->fillRect(WIDTH - 5, HEIGHT - (HEIGHT / 6) - 1, 5, 2,
+                           text_color);  // Quadrat von x=0 bis x=5 und y= 5/6
+                                         // HEIGHT -1 bis y= 5/6 HEIGHT +1
+            disp->fillRect(WIDTH - 5, HEIGHT - (HEIGHT / 6), 2,
+                           (HEIGHT - (u8g2.getUTF8Width(label.c_str())) / 2) -
+                               h_padding - (HEIGHT - (HEIGHT / 6)),
+                           text_color);
+            disp->fillRect(WIDTH - 8,
+                           (HEIGHT - (u8g2.getUTF8Width(label.c_str())) / 2) -
+                               h_padding - 1,
+                           5, 2, text_color);
+          }
+        } else {
+          x = i % 2 == 0
+                  ? h_padding + 56 - ((24 - u8g2.getFontAscent()) / 2)
+                  : WIDTH - h_padding - 32 - ((24 - u8g2.getFontAscent()) / 2);
+          y = static_cast<uint16_t>(
+              round((HEIGHT / 2.) + (u8g2.getUTF8Width(label.c_str()) / 2)));
+          if (i == 2) {
+            disp->fillRect(0, (HEIGHT / 2) - 1, 32, 2, text_color);
+          } else if (i == 3) {
+            disp->fillRect(WIDTH - 32, (HEIGHT / 2) - 1, 32, 2, text_color);
+          }
+        }
       }
-      y = static_cast<uint16_t>(round(HEIGHT / 12. + i * HEIGHT / 6.)) + h / 2;
+      if (label == "<format_spiffs>" && just_formatted == 0) {
+        info("Formatting icon storage...");
+        disp_message("Formatting\nIcon\nStorage...", 0);
+        update();
+        SPIFFS.format();
+        just_formatted = 1;
+      }
       u8g2.setCursor(x, y);
       u8g2.print(label.c_str());
     }
@@ -474,6 +839,7 @@ void Display::draw_info() {
   disp->setRotation(0);
   disp->setFullWindow();
 
+  u8g2.setFontDirection(0);
   u8g2.setFontMode(1);
   u8g2.setForegroundColor(text_color);
   u8g2.setBackgroundColor(bg_color);
@@ -486,32 +852,134 @@ void Display::draw_info() {
   text = "- Temp -";
   u8g2.setFont(u8g2_font_courR12_tr);
   w = u8g2.getUTF8Width(text.c_str());
-  u8g2.setCursor(WIDTH / 2 - w / 2, 30);
+  switch (global_rotation) {
+    case 90:
+      text = " Temp ";
+      w = u8g2.getUTF8Width(text.c_str());
+      u8g2.setCursor(WIDTH - 48, (HEIGHT / 6) - (w / 2));
+      u8g2.setFontDirection(1);
+      break;
+    case 180:
+      u8g2.setCursor(WIDTH / 2 + w / 2, HEIGHT - 30);
+      u8g2.setFontDirection(2);
+      break;
+    case 270:
+      text = " Temp ";
+      w = u8g2.getUTF8Width(text.c_str());
+      u8g2.setCursor(48, (5 * HEIGHT / 6) + (w / 2));
+      u8g2.setFontDirection(3);
+      break;
+    default:
+      u8g2.setCursor(WIDTH / 2 - w / 2, 30);
+      u8g2.setFontDirection(0);
+  }
   u8g2.print(text.c_str());
 
   text = UIState::MessageType("%.1f %s", device_state_.sensors().temperature,
                               device_state_.get_temp_unit().c_str());
   u8g2.setFont(u8g2_font_helvB24_te);
   w = u8g2.getUTF8Width(text.c_str());
-  u8g2.setCursor(WIDTH / 2 - w / 2 - 2, 70);
+  switch (global_rotation) {
+    case 90:
+      u8g2.setFont(u8g2_font_helvB18_te);
+      w = u8g2.getUTF8Width(text.c_str());
+      u8g2.setCursor(WIDTH - 88, (HEIGHT / 6) - (w / 2));
+      u8g2.setFontDirection(1);
+      break;
+    case 180:
+      u8g2.setCursor(WIDTH / 2 + w / 2, HEIGHT - 70);
+      u8g2.setFontDirection(2);
+      break;
+    case 270:
+      u8g2.setFont(u8g2_font_helvB18_te);
+      w = u8g2.getUTF8Width(text.c_str());
+      u8g2.setCursor(88, (5 * HEIGHT / 6) + (w / 2));
+      u8g2.setFontDirection(3);
+      break;
+    default:
+      u8g2.setCursor(WIDTH / 2 - w / 2 - 2, 70);
+      u8g2.setFontDirection(0);
+  }
   u8g2.print(text.c_str());
 
   text = "- Humd -";
   u8g2.setFont(u8g2_font_courR12_tr);
   w = u8g2.getUTF8Width(text.c_str());
-  u8g2.setCursor(WIDTH / 2 - w / 2, 129);
+  switch (global_rotation) {
+    case 90:
+      text = " Humd ";
+      w = u8g2.getUTF8Width(text.c_str());
+      u8g2.setCursor(WIDTH - 48, (3 * HEIGHT / 6) - (w / 2));
+      u8g2.setFontDirection(1);
+      break;
+    case 180:
+      u8g2.setCursor(WIDTH / 2 + w / 2, HEIGHT - 129);
+      u8g2.setFontDirection(2);
+      break;
+    case 270:
+      text = " Humd ";
+      w = u8g2.getUTF8Width(text.c_str());
+      u8g2.setCursor(48, (3 * HEIGHT / 6) + (w / 2));
+      u8g2.setFontDirection(3);
+      break;
+    default:
+      u8g2.setCursor(WIDTH / 2 - w / 2, 129);
+      u8g2.setFontDirection(0);
+  }
   u8g2.print(text.c_str());
 
   text = UIState::MessageType("%.0f %%", device_state_.sensors().humidity);
   u8g2.setFont(u8g2_font_helvB24_te);
   w = u8g2.getUTF8Width(text.c_str());
-  u8g2.setCursor(WIDTH / 2 - w / 2 - 2, 169);
+  switch (global_rotation) {
+    case 90:
+      u8g2.setFont(u8g2_font_helvB18_te);
+      w = u8g2.getUTF8Width(text.c_str());
+      u8g2.setCursor(WIDTH - 88, (3 * HEIGHT / 6) - (w / 2));
+      u8g2.setFontDirection(1);
+      break;
+    case 180:
+      u8g2.setCursor(WIDTH / 2 + w / 2, HEIGHT - 169);
+      u8g2.setFontDirection(2);
+      break;
+    case 270:
+      u8g2.setFont(u8g2_font_helvB18_te);
+      w = u8g2.getUTF8Width(text.c_str());
+      u8g2.setCursor(88, (3 * HEIGHT / 6) + (w / 2));
+      u8g2.setFontDirection(3);
+      break;
+    default:
+      u8g2.setCursor(WIDTH / 2 - w / 2 - 2, 169);
+      u8g2.setFontDirection(0);
+  }
   u8g2.print(text.c_str());
 
   text = "- Batt -";
   u8g2.setFont(u8g2_font_courR12_tr);
   w = u8g2.getUTF8Width(text.c_str());
   u8g2.setCursor(WIDTH / 2 - w / 2, 228);
+  switch (global_rotation) {
+    case 90:
+      text = " Batt ";
+      w = u8g2.getUTF8Width(text.c_str());
+      u8g2.setCursor(WIDTH - 48, (5 * HEIGHT / 6) - (w / 2));
+      u8g2.setFontDirection(1);
+      break;
+    case 180:
+
+      u8g2.setCursor(WIDTH / 2 + w / 2, HEIGHT - 228);
+      u8g2.setFontDirection(2);
+      break;
+    case 270:
+      text = " Batt ";
+      w = u8g2.getUTF8Width(text.c_str());
+      u8g2.setCursor(48, (HEIGHT / 6) + (w / 2));
+      u8g2.setFontDirection(3);
+      break;
+    default:
+      u8g2.setCursor(WIDTH / 2 - w / 2, 228);
+      u8g2.setFontDirection(0);
+  }
   u8g2.print(text.c_str());
 
   if (device_state_.sensors().battery_present) {
@@ -521,7 +989,27 @@ void Display::draw_info() {
   }
   u8g2.setFont(u8g2_font_helvB24_te);
   w = u8g2.getUTF8Width(text.c_str());
-  u8g2.setCursor(WIDTH / 2 - w / 2 - 2, 268);
+  switch (global_rotation) {
+    case 90:
+      u8g2.setFont(u8g2_font_helvB18_te);
+      w = u8g2.getUTF8Width(text.c_str());
+      u8g2.setCursor(WIDTH - 88, (5 * HEIGHT / 6) - (w / 2));
+      u8g2.setFontDirection(1);
+      break;
+    case 180:
+      u8g2.setCursor(WIDTH / 2 + w / 2, HEIGHT - 268);
+      u8g2.setFontDirection(2);
+      break;
+    case 270:
+      u8g2.setFont(u8g2_font_helvB18_te);
+      w = u8g2.getUTF8Width(text.c_str());
+      u8g2.setCursor(88, (HEIGHT / 6) + (w / 2));
+      u8g2.setFontDirection(3);
+      break;
+    default:
+      u8g2.setCursor(WIDTH / 2 - w / 2 - 2, 268);
+      u8g2.setFontDirection(0);
+  }
   u8g2.print(text.c_str());
 
   disp->display();
@@ -530,7 +1018,7 @@ void Display::draw_info() {
 void Display::draw_device_info() {
   disp->setRotation(0);
   disp->setFullWindow();
-
+  u8g2.setFontDirection(0);
   u8g2.setFontMode(1);
   u8g2.setForegroundColor(text_color);
   u8g2.setBackgroundColor(bg_color);
@@ -578,7 +1066,7 @@ void Display::draw_device_info() {
 void Display::draw_welcome() {
   disp->setRotation(0);
   disp->setFullWindow();
-
+  u8g2.setFontDirection(0);
   u8g2.setFontMode(1);
   u8g2.setForegroundColor(text_color);
   u8g2.setBackgroundColor(bg_color);
@@ -645,6 +1133,7 @@ void Display::draw_welcome() {
 void Display::draw_settings() {
   disp->setRotation(0);
   disp->setFullWindow();
+  u8g2.setFontDirection(0);
 
   u8g2.setFontMode(1);
   u8g2.setForegroundColor(text_color);
@@ -691,7 +1180,7 @@ void Display::draw_ap_config() {
   QRCode qrcode;
   uint8_t qrcodeData[qrcode_getBufferSize(version)];
   qrcode_initText(&qrcode, qrcodeData, version, ECC_HIGH, contents.c_str());
-
+  u8g2.setFontDirection(0);
   disp->setRotation(0);
   disp->setFullWindow();
 
@@ -756,7 +1245,7 @@ void Display::draw_web_config() {
   QRCode qrcode;
   uint8_t qrcodeData[qrcode_getBufferSize(version)];
   qrcode_initText(&qrcode, qrcodeData, version, ECC_HIGH, contents.c_str());
-
+  u8g2.setFontDirection(0);
   disp->setRotation(0);
   disp->setFullWindow();
 
@@ -816,6 +1305,7 @@ void Display::draw_test(const char *text, const char *mdi_name,
   disp->setRotation(0);
   disp->setFullWindow();
 
+  u8g2.setFontDirection(0);
   u8g2.setFontMode(1);
   u8g2.setForegroundColor(fg);
   u8g2.setBackgroundColor(bg);
@@ -1145,7 +1635,7 @@ void Display::draw_black() {
 
 // based on GxEPD2_Spiffs_Example.ino - drawBitmapFromSpiffs_Buffered()
 // Warning - SPIFFS.begin() must be called before this function
-bool Display::draw_bmp(File &file, int16_t x, int16_t y) {
+bool Display::draw_bmp(File &file, int16_t x, int16_t y, int16_t rotation) {
   uint32_t startTime = millis();
   if (!file) {
     error("error opening file");
@@ -1212,6 +1702,7 @@ bool Display::draw_bmp(File &file, int16_t x, int16_t y) {
       }
       uint32_t rowPosition =
           flip ? imageOffset + (height - h) * rowSize : imageOffset;
+
       for (uint16_t row = 0; row < h;
            row++, rowPosition += rowSize)  // for each line
       {
@@ -1288,10 +1779,31 @@ bool Display::draw_bmp(File &file, int16_t x, int16_t y) {
           } else {
             color = GxEPD_BLACK;
           }
-          uint16_t yrow = y + (flip ? h - row - 1 : row);
-          disp->drawPixel(x + col, yrow, color);
+
+          uint16_t yadd = (flip ? h - row - 1 : row);
+          uint16_t xadd = col;
+
+          // 90 degree ccw
+          if (rotation == 90) {
+            xadd = h - yadd;
+            yadd = col;
+          }
+
+          // 180 degree ccw
+          if (rotation == 180) {
+            xadd = w - col;
+            yadd = h - yadd;
+          }
+
+          // 270 degree ccw = 90 degree cw
+          if (rotation == 270) {
+            xadd = yadd;
+            yadd = w - col;
+          }
+
+          disp->drawPixel(x + xadd, y + yadd, color);
         }  // end pixel
-      }    // end line
+      }  // end line
     }
   }
   file.close();
@@ -1302,12 +1814,13 @@ bool Display::draw_bmp(File &file, int16_t x, int16_t y) {
   return valid;
 }
 
-void Display::draw_mdi(const char *name, uint16_t size, int16_t x, int16_t y) {
+void Display::draw_mdi(const char *name, uint16_t size, int16_t x, int16_t y,
+                       int16_t rotation) {
   bool draw_placeholder = false;
   File file;
   if (mdi_.exists(name, size)) {
     File file = mdi_.get_file(name, size);
-    if (!draw_bmp(file, x, y)) {
+    if (!draw_bmp(file, x, y, rotation)) {
       error("Could not draw icon: %s", name);
       // file might be corrupted - remove so it will be downloaded again
       mdi_.remove(name, size);

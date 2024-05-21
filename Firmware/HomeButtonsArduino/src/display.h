@@ -113,8 +113,8 @@ class Display : public Logger {
   void draw_test(const char* text, const char* mdi_name, uint16_t mdi_size);
   void draw_white();
   void draw_black();
-  bool draw_bmp(File& file, int16_t x, int16_t y);
-  void draw_mdi(const char* name, uint16_t size, int16_t x, int16_t y);
+  bool draw_bmp(File& file, int16_t x, int16_t y, int16_t rotation = 0);
+  void draw_mdi(const char* name, uint16_t size, int16_t x, int16_t y, int16_t rotation = 0);
 };
 
 #endif  // HOMEBUTTONS_DISPLAY_H

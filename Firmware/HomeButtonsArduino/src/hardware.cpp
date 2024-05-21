@@ -80,7 +80,7 @@ bool HardwareDefinition::init() {
   } else if (strcmp(hw_ver, "2.4") == 0) {
     load_hw_rev_2_4();
     info("configured for hw version: 2.4");
-  } else if (strcmp(hw_ver, "2.5") == 0) {
+} else if (strcmp(hw_ver, "2.5") == 0) {
     load_hw_rev_2_5();
     info("configured for hw version: 2.5");
   } else {
@@ -409,13 +409,19 @@ bool HardwareDefinition::_efuse_burned() {
 }
 
 void HardwareDefinition::_read_efuse() {
+  #ifdef HOME_BUTTONS_MINI_OVERRIDE_MODELID
+  #else
   factory_params_ = {};
+  #endif
   ESP_ERROR_CHECK(esp_efuse_read_field_blob(
       ESP_EFUSE_USER_DATA_SERIAL_NUMBER, &factory_params_.serial_number, 64));
   ESP_ERROR_CHECK(esp_efuse_read_field_blob(ESP_EFUSE_USER_DATA_RANDOM_ID,
                                             &factory_params_.random_id, 48));
+  #ifdef HOME_BUTTONS_MINI_OVERRIDE_MODELID
+  #else
   ESP_ERROR_CHECK(esp_efuse_read_field_blob(ESP_EFUSE_USER_DATA_MODEL_ID,
                                             &factory_params_.model_id, 16));
+  #endif
   ESP_ERROR_CHECK(esp_efuse_read_field_blob(ESP_EFUSE_USER_DATA_HW_VERSION,
                                             &factory_params_.hw_version, 24));
   info("read efuse factory params: SN=%s, RID=%s, M=%s, HW=%s",
